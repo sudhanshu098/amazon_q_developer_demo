@@ -1,14 +1,16 @@
 const express = require('express');
 const redis = require('redis');
 const cors = require('cors');
+const S3Service = require('./src/s3Service');
 
-function createApp(redisClient) {
+function createApp(redisClient, s3Service) {
   const app = express();
   
   app.use(cors());
   app.use(express.json());
 
   const client = redisClient || redis.createClient({ host: 'localhost', port: 6379 });
+  const s3 = s3Service || new S3Service();
 
   // GET all users
   app.get('/api/users', async (req, res) => {
@@ -75,6 +77,16 @@ function createApp(redisClient) {
       const deleted = await client.del(`user:${req.params.id}`);
       if (!deleted) return res.status(404).json({ error: 'User not found' });
       res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // GET S3 buckets
+  app.get('/api/buckets', async (req, res) => {
+    try {
+      const buckets = await s3.listBuckets();
+      res.json(buckets);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

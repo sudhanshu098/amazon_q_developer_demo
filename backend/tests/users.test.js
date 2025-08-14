@@ -5,7 +5,7 @@ describe('Users API', () => {
   let app;
 
   beforeAll(() => {
-    const appInstance = createApp(global.mockClient);
+    const appInstance = createApp(global.mockClient, null);
     app = appInstance.app;
   });
 
