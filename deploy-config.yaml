@@ -13,3 +13,15 @@ deployments:
       Environment: demo
       Project: q-demo
       Purpose: permission-failure-demo
+      
+  - name: fixed-lambda-permission
+    template_file: cloudformation-templates/fixed-lambda-permission-template.yaml
+    stack_name: q-demo-fixed-lambda
+    capabilities:
+      - CAPABILITY_NAMED_IAM
+    parameters:
+      FunctionName: qDemoFixed
+    tags:
+      Environment: demo
+      Project: q-demo
+      Purpose: permission-fix-demo
