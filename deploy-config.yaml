@@ -1,0 +1,15 @@
+version: 0.1
+project_name: q-demo-lambda-deployment
+
+deployments:
+  - name: wrong-lambda-permission
+    template_file: cloudformation-templates/wrong-lambda-permission-template.yaml
+    stack_name: q-demo-wrong-lambda
+    capabilities:
+      - CAPABILITY_NAMED_IAM
+    parameters:
+      FunctionName: qDemoBadTrust
+    tags:
+      Environment: demo
+      Project: q-demo
+      Purpose: permission-failure-demo
