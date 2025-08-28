@@ -29,7 +29,7 @@ const Home = ({ user }) => {
     <div style={{ padding: '2rem' }}>
       {/* Hero Section */}
       <div style={{ textAlign: 'center', marginBottom: '3rem', padding: '3rem', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
-        <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: '#1e293b' }}>Find Your Dream Job</h1>
+        <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: '#1e293b' }}>Discover Your Next Career Opportunity</h1>
         <p style={{ fontSize: '1.2rem', color: '#64748b', marginBottom: '2rem' }}>
           Connect with top employers and discover opportunities that match your skills
         </p>
