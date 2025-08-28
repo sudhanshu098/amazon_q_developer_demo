@@ -1,7 +1,0 @@
-node_modules/
-package-lock.json
-npm-debug.log*
-.env
-build/
-dist/
-redis-stable/
