@@ -1,15 +1,10 @@
-version: 0.1
-project_name: q-demo-lambda-deployment
-
-deployments:
-  - name: fixed-lambda-permission
-    template_file: cloudformation-templates/fixed-lambda-permission-template.yaml
-    stack_name: q-demo-fixed-lambda
-    capabilities:
-      - CAPABILITY_NAMED_IAM
-    parameters:
-      FunctionName: qDemoFixed
-    tags:
-      Environment: demo
-      Project: q-demo
-      Purpose: permission-fix-demo
+template_file: cloudformation-templates/fixed-lambda-permission-template.yaml
+stack_name: q-demo-fixed-lambda
+capabilities:
+  - CAPABILITY_NAMED_IAM
+parameter_overrides:
+  FunctionName: qDemoFixed
+tags:
+  Environment: demo
+  Project: q-demo
+  Purpose: permission-fix-demo
