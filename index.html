@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo List</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState } = React;
+
+        function TodoApp() {
+            const [todos, setTodos] = useState([]);
+            const [input, setInput] = useState('');
+
+            const addTodo = () => {
+                if (input.trim()) {
+                    setTodos([...todos, { id: Date.now(), text: input, completed: false }]);
+                    setInput('');
+                }
+            };
+
+            const toggleTodo = (id) => {
+                setTodos(todos.map(todo => 
+                    todo.id === id ? { ...todo, completed: !todo.completed } : todo
+                ));
+            };
+
+            const deleteTodo = (id) => {
+                setTodos(todos.filter(todo => todo.id !== id));
+            };
+
+            return (
+                <div style={{ padding: '20px', maxWidth: '500px', margin: '0 auto' }}>
+                    <h1>Todo List</h1>
+                    <div style={{ marginBottom: '20px' }}>
+                        <input
+                            type="text"
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && addTodo()}
+                            placeholder="Add a todo..."
+                            style={{ padding: '8px', width: '300px', marginRight: '10px' }}
+                        />
+                        <button onClick={addTodo} style={{ padding: '8px 16px' }}>Add</button>
+                    </div>
+                    <ul style={{ listStyle: 'none', padding: 0 }}>
+                        {todos.map(todo => (
+                            <li key={todo.id} style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                padding: '10px', 
+                                border: '1px solid #ddd', 
+                                marginBottom: '5px' 
+                            }}>
+                                <input
+                                    type="checkbox"
+                                    checked={todo.completed}
+                                    onChange={() => toggleTodo(todo.id)}
+                                    style={{ marginRight: '10px' }}
+                                />
+                                <span style={{ 
+                                    flex: 1, 
+                                    textDecoration: todo.completed ? 'line-through' : 'none' 
+                                }}>
+                                    {todo.text}
+                                </span>
+                                <button onClick={() => deleteTodo(todo.id)} style={{ marginLeft: '10px' }}>
+                                    Delete
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<TodoApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
