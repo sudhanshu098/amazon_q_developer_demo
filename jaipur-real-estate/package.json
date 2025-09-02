@@ -1,0 +1,23 @@
+{
+  "name": "jaipur-real-estate-portal",
+  "version": "1.0.0",
+  "description": "Complete Online Real Estate Portal for Jaipur, Rajasthan",
+  "scripts": {
+    "install-all": "cd frontend && npm install && cd ../backend && npm install",
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
+    "start": "concurrently \"cd backend && npm start\" \"cd frontend && npm start\"",
+    "build": "cd frontend && npm run build"
+  },
+  "keywords": [
+    "real-estate",
+    "jaipur",
+    "nextjs",
+    "nodejs",
+    "property-portal"
+  ],
+  "author": "Jaipur Realty Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
