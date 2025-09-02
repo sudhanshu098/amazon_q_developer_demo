@@ -1,31 +1,582 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Demo stack with issues for AI review"
+Description: "Secure and optimized infrastructure stack with VPC, EC2, and S3 resources following AWS best practices"
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Network Configuration"
+        Parameters:
+          - VpcCidr
+          - PublicSubnetCidr
+          - PrivateSubnetCidr
+          - AllowedSshCidr
+      - Label:
+          default: "EC2 Configuration"
+        Parameters:
+          - InstanceType
+          - KeyPairName
+          - LatestAmiId
+      - Label:
+          default: "S3 Configuration"
+        Parameters:
+          - BucketPrefix
+          - EnableVersioning
+      - Label:
+          default: "Tagging"
+        Parameters:
+          - Environment
+          - ProjectName
+
+Parameters:
+  VpcCidr:
+    Type: String
+    Default: "10.0.0.0/16"
+    Description: "CIDR block for the VPC"
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    ConstraintDescription: "Must be a valid IP CIDR range of the form x.x.x.x/x."
+
+  PublicSubnetCidr:
+    Type: String
+    Default: "10.0.1.0/24"
+    Description: "CIDR block for the public subnet"
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    ConstraintDescription: "Must be a valid IP CIDR range of the form x.x.x.x/x."
+
+  PrivateSubnetCidr:
+    Type: String
+    Default: "10.0.2.0/24"
+    Description: "CIDR block for the private subnet"
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    ConstraintDescription: "Must be a valid IP CIDR range of the form x.x.x.x/x."
+
+  AllowedSshCidr:
+    Type: String
+    Default: "10.0.0.0/8"
+    Description: "CIDR block allowed for SSH access (restrict to your IP range, NOT 0.0.0.0/0)"
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(0|[1-9]|1[0-9]|2[0-9]|3[0-2]))$"
+    ConstraintDescription: "Must be a valid IP CIDR range of the form x.x.x.x/x."
+
+  InstanceType:
+    Type: String
+    Default: "t3.medium"
+    AllowedValues:
+      - "t3.micro"
+      - "t3.small"
+      - "t3.medium"
+      - "t3.large"
+      - "t3.xlarge"
+    Description: "EC2 instance type (t3 generation for better price-performance)"
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: "Name of an existing EC2 KeyPair to enable SSH access"
+
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
+    Description: "Latest Amazon Linux 2 AMI ID (automatically updated)"
+
+  BucketPrefix:
+    Type: String
+    Default: "secure-demo-bucket"
+    Description: "Prefix for S3 bucket name (will be suffixed with account ID and region)"
+    AllowedPattern: "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+    ConstraintDescription: "Must contain only lowercase letters, numbers, and hyphens"
+
+  EnableVersioning:
+    Type: String
+    Default: "Enabled"
+    AllowedValues:
+      - "Enabled"
+      - "Suspended"
+    Description: "Enable S3 bucket versioning"
+
+  Environment:
+    Type: String
+    Default: "dev"
+    AllowedValues:
+      - "dev"
+      - "staging"
+      - "prod"
+    Description: "Environment name for resource tagging"
+
+  ProjectName:
+    Type: String
+    Default: "secure-infrastructure"
+    Description: "Project name for resource tagging"
+    AllowedPattern: "^[a-zA-Z0-9-_]*$"
+    ConstraintDescription: "Must contain only alphanumeric characters, hyphens, and underscores"
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      InstanceType: "t3.medium"
+    us-west-2:
+      InstanceType: "t3.medium"
+    eu-west-1:
+      InstanceType: "t3.medium"
+    ap-southeast-1:
+      InstanceType: "t3.medium"
+
+Conditions:
+  IsProduction: !Equals [!Ref Environment, "prod"]
+  EnableDetailedMonitoring: !Equals [!Ref Environment, "prod"]
 
 Resources:
-  MyInstance:
-    Type: AWS::EC2::Instance
+  # VPC Infrastructure
+  VPC:
+    Type: AWS::EC2::VPC
     Properties:
-      InstanceType: t2.large       # Expensive, older gen
-      ImageId: ami-1234567890abcdef0
-      KeyName: my-key              # Hardcoded key name
-      SecurityGroups:
-        - !Ref MySecurityGroup
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-vpc"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
 
-  MySecurityGroup:
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-igw"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: !Ref PublicSubnetCidr
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-public-subnet"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      CidrBlock: !Ref PrivateSubnetCidr
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-private-subnet"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-public-rt"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::RouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet
+
+  # Security Groups
+  WebSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow SSH and HTTP
+      GroupName: !Sub "${ProjectName}-${Environment}-web-sg"
+      GroupDescription: "Security group for web servers with restricted SSH access"
+      VpcId: !Ref VPC
       SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0       # ❌ Insecure (open SSH to world)
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
+          Description: "HTTP access from anywhere"
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: "HTTPS access from anywhere"
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AllowedSshCidr
+          Description: "SSH access from allowed CIDR range only"
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: "All outbound traffic"
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-web-sg"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
 
-  MyS3Bucket:
+  # IAM Role for EC2 Instance
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-ec2-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: S3BucketAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub "${S3Bucket}/*"
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !Ref S3Bucket
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-ec2-role"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub "${ProjectName}-${Environment}-ec2-profile"
+      Roles:
+        - !Ref EC2InstanceRole
+
+  # EC2 Instance with optimizations
+  WebServerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref LatestAmiId
+      KeyName: !Ref KeyPairName
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !Ref WebSecurityGroup
+      EbsOptimized: true
+      Monitoring: !If [EnableDetailedMonitoring, true, false]
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeType: gp3
+            VolumeSize: 20
+            Encrypted: true
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y amazon-cloudwatch-agent
+          
+          # Configure CloudWatch agent
+          cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'EOF'
+          {
+            "metrics": {
+              "namespace": "AWS/EC2/Custom",
+              "metrics_collected": {
+                "cpu": {
+                  "measurement": ["cpu_usage_idle", "cpu_usage_iowait", "cpu_usage_user", "cpu_usage_system"],
+                  "metrics_collection_interval": 60
+                },
+                "disk": {
+                  "measurement": ["used_percent"],
+                  "metrics_collection_interval": 60,
+                  "resources": ["*"]
+                },
+                "mem": {
+                  "measurement": ["mem_used_percent"],
+                  "metrics_collection_interval": 60
+                }
+              }
+            },
+            "logs": {
+              "logs_collected": {
+                "files": {
+                  "collect_list": [
+                    {
+                      "file_path": "/var/log/messages",
+                      "log_group_name": "${CloudWatchLogGroup}",
+                      "log_stream_name": "{instance_id}/messages"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+          EOF
+          
+          # Start CloudWatch agent
+          /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+            -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-web-server"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Backup
+          Value: !If [IsProduction, "Required", "Optional"]
+
+  # S3 Bucket with security and lifecycle configurations
+  S3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: my-demo-bucket   # Hardcoded name, may cause conflict
+      BucketName: !Sub "${BucketPrefix}-${AWS::AccountId}-${AWS::Region}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: true
+      VersioningConfiguration:
+        Status: !Ref EnableVersioning
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: TransitionToIA
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 30
+                StorageClass: STANDARD_IA
+          - Id: TransitionToGlacier
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 90
+                StorageClass: GLACIER
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 365
+          - Id: DeleteIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      NotificationConfiguration:
+        CloudWatchConfigurations:
+          - Event: s3:ObjectCreated:*
+            CloudWatchConfiguration:
+              LogGroupName: !Ref CloudWatchLogGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-bucket"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # S3 Bucket Policy for additional security
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !Sub "${S3Bucket}/*"
+              - !Ref S3Bucket
+            Condition:
+              Bool:
+                "aws:SecureTransport": "false"
+          - Sid: AllowEC2InstanceAccess
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt EC2InstanceRole.Arn
+            Action:
+              - "s3:GetObject"
+              - "s3:PutObject"
+              - "s3:DeleteObject"
+              - "s3:ListBucket"
+            Resource:
+              - !Sub "${S3Bucket}/*"
+              - !Ref S3Bucket
+
+  # CloudWatch Log Group
+  CloudWatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/ec2/${ProjectName}-${Environment}"
+      RetentionInDays: !If [IsProduction, 365, 30]
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-logs"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # CloudWatch Alarms
+  HighCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectName}-${Environment}-high-cpu"
+      AlarmDescription: "Alarm when CPU exceeds 80%"
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref WebServerInstance
+      TreatMissingData: notBreaching
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-high-cpu-alarm"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+  DiskSpaceAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectName}-${Environment}-low-disk-space"
+      AlarmDescription: "Alarm when disk usage exceeds 85%"
+      MetricName: DiskSpaceUtilization
+      Namespace: System/Linux
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 85
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref WebServerInstance
+        - Name: MountPath
+          Value: "/"
+        - Name: Filesystem
+          Value: "/dev/xvda1"
+      TreatMissingData: notBreaching
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-disk-space-alarm"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+Outputs:
+  VPCId:
+    Description: "ID of the VPC"
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-vpc-id"
+
+  PublicSubnetId:
+    Description: "ID of the public subnet"
+    Value: !Ref PublicSubnet
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-public-subnet-id"
+
+  PrivateSubnetId:
+    Description: "ID of the private subnet"
+    Value: !Ref PrivateSubnet
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-private-subnet-id"
+
+  WebSecurityGroupId:
+    Description: "ID of the web security group"
+    Value: !Ref WebSecurityGroup
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-web-sg-id"
+
+  InstanceId:
+    Description: "ID of the EC2 instance"
+    Value: !Ref WebServerInstance
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-instance-id"
+
+  InstancePublicIP:
+    Description: "Public IP address of the EC2 instance"
+    Value: !GetAtt WebServerInstance.PublicIp
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-instance-public-ip"
+
+  InstancePrivateIP:
+    Description: "Private IP address of the EC2 instance"
+    Value: !GetAtt WebServerInstance.PrivateIp
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-instance-private-ip"
+
+  S3BucketName:
+    Description: "Name of the S3 bucket"
+    Value: !Ref S3Bucket
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-s3-bucket-name"
+
+  S3BucketArn:
+    Description: "ARN of the S3 bucket"
+    Value: !GetAtt S3Bucket.Arn
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-s3-bucket-arn"
+
+  CloudWatchLogGroupName:
+    Description: "Name of the CloudWatch log group"
+    Value: !Ref CloudWatchLogGroup
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-log-group-name"
+
+  IAMRoleArn:
+    Description: "ARN of the EC2 IAM role"
+    Value: !GetAtt EC2InstanceRole.Arn
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-ec2-role-arn"
