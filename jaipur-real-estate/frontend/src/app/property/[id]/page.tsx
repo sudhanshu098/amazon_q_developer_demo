@@ -54,7 +54,7 @@ export default function PropertyDetailPage() {
             <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
               <div className="relative h-96">
                 <img
-                  src={property.images[currentImageIndex] || '/api/placeholder/800/400'}
+                  src={property.images[currentImageIndex] || 'https://via.placeholder.com/800x400/4F46E5/FFFFFF?text=Property+Image'}
                   alt={property.title}
                   className="w-full h-full object-cover"
                 />

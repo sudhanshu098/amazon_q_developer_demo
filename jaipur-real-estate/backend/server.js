@@ -12,6 +12,12 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Serve placeholder images
+app.get('/api/placeholder/:width/:height', (req, res) => {
+  const { width, height } = req.params;
+  res.redirect(`https://via.placeholder.com/${width}x${height}/4F46E5/FFFFFF?text=Property+Image`);
+});
+
 // Data storage paths
 const DATA_DIR = path.join(__dirname, 'data');
 const PROPERTIES_FILE = path.join(DATA_DIR, 'properties.json');
@@ -51,7 +57,7 @@ const getDummyProperties = () => [
     bedrooms: 3,
     bathrooms: 2,
     type: 'apartment',
-    images: ['/api/placeholder/600/400'],
+    images: ['https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=600&h=400&fit=crop'],
     features: ['Parking', 'Lift', 'Security', 'Garden'],
     contact: { name: 'Rajesh Sharma', phone: '+91 98765 43210', email: 'rajesh@example.com' },
     createdAt: new Date().toISOString()
@@ -66,7 +72,7 @@ const getDummyProperties = () => [
     bedrooms: 4,
     bathrooms: 3,
     type: 'villa',
-    images: ['/api/placeholder/600/400'],
+    images: ['https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=600&h=400&fit=crop'],
     features: ['Garden', 'Parking', 'Swimming Pool', 'Security'],
     contact: { name: 'Priya Agarwal', phone: '+91 87654 32109', email: 'priya@example.com' },
     createdAt: new Date().toISOString()
@@ -81,7 +87,7 @@ const getDummyProperties = () => [
     bedrooms: 2,
     bathrooms: 1,
     type: 'apartment',
-    images: ['/api/placeholder/600/400'],
+    images: ['https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&h=400&fit=crop'],
     features: ['Parking', 'Lift', 'Security'],
     contact: { name: 'Amit Kumar', phone: '+91 76543 21098', email: 'amit@example.com' },
     createdAt: new Date().toISOString()
@@ -96,7 +102,7 @@ const getDummyProperties = () => [
     bedrooms: 0,
     bathrooms: 0,
     type: 'plot',
-    images: ['/api/placeholder/600/400'],
+    images: ['https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=600&h=400&fit=crop'],
     features: ['Corner Plot', 'Clear Title', 'Road Facing'],
     contact: { name: 'Sunita Jain', phone: '+91 65432 10987', email: 'sunita@example.com' },
     createdAt: new Date().toISOString()

@@ -20,7 +20,7 @@ export default function PropertyCard({ property }: PropertyCardProps) {
     <div className="card overflow-hidden">
       <div className="relative h-48 bg-gray-200">
         <img 
-          src={property.images[0] || '/api/placeholder/400/300'} 
+          src={property.images[0] || 'https://via.placeholder.com/400x300/4F46E5/FFFFFF?text=Property+Image'} 
           alt={property.title}
           className="w-full h-full object-cover"
         />
